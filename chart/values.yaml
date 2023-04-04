@@ -112,16 +112,24 @@ args:
 
 # Additional environment variables for Keycloak
 # https://www.keycloak.org/server/all-config
-extraEnv: ""
-# extraEnv: |-
-#   - name: KC_HTTPS_CERTIFICATE_FILE
-#     value: /opt/keycloak/conf/tls.crt
-#   - name: KC_HTTPS_CERTIFICATE_KEY_FILE
-#     value: /opt/keycloak/conf/tls.key
+#extraEnv: ""
+extraEnv: |-
+  - name: KC_HTTPS_CERTIFICATE_FILE
+    value: /opt/keycloak/conf/tls.crt
+  - name: KC_HTTPS_CERTIFICATE_KEY_FILE
+    value: /opt/keycloak/conf/tls.key
+  - name: KC_HTTP_RELATIVE_PATH
+    value: /
+  - name: KC_HOSTNAME_ADMIN_URL
+    value: https://keycloak.cincothorn.io:443
+  - name: KC_HOSTNAME_URL
+    value: https://keycloak.cincothorn.io:443
+# - name: KC_HOSTNAME
+#   value: keycloak.cincothorn.io
+# - name: KC_HOSTNAME_STRICT
+#   value: "true"
 #   - name: KC_HTTP_ENABLED
 #     value: "true"
-#   - name: KC_HTTP_RELATIVE_PATH
-#     value: /auth
 #   - name: KC_HTTPS_CLIENT_AUTH
 #     value: request
 #   - name: KC_PROXY
@@ -130,10 +138,6 @@ extraEnv: ""
 #     value: /opt/keycloak/conf/truststore.jks
 #   - name: KC_HTTPS_TRUST_STORE_PASSWORD
 #     value: password
-#   - name: KC_HOSTNAME
-#     value: keycloak.bigbang.dev
-#   - name: KC_HOSTNAME_STRICT
-#     value: "true"
 #   - name: KC_HOSTNAME_STRICT_HTTPS
 #     value: "true"
 #   - name: KC_LOG_LEVEL
@@ -200,9 +204,9 @@ podAnnotations: {}
 #### Updated for Big Bang ####
 livenessProbe: |
   httpGet:
-    path: /auth/realms/master
-    port: http
-    scheme: HTTP
+    path: /realms/master
+    port: https
+    scheme: HTTPS
   failureThreshold: 15
   timeoutSeconds: 2
   periodSeconds: 15
@@ -211,9 +215,9 @@ livenessProbe: |
 #### Updated for Big Bang ####
 readinessProbe: |
   httpGet:
-    path: /auth/realms/master
-    port: http
-    scheme: HTTP
+    path: /realms/master
+    port: https
+    scheme: HTTPS
   failureThreshold: 15
   timeoutSeconds: 2
 
@@ -221,8 +225,9 @@ readinessProbe: |
 #### Updated for Big Bang ####
 startupProbe: |
   httpGet:
-    path: /auth/realms/master
-    port: http
+    path: /realms/master
+    port: https
+    scheme: HTTPS
   initialDelaySeconds: 90
   timeoutSeconds: 2
   failureThreshold: 60
@@ -244,14 +249,22 @@ extraVolumes: ""
 
 #### added by Big Bang ####
 # This values key is reserved for integration with BigBang chart
-extraVolumesBigBang: {}
+# Empty = {}
+extraVolumesBigBang:
+  - name: kc-wildcard-tls
+    secret:
+      secretName: kc-wildcard-tls-secret
 
 # Add additional volumes mounts, e. g. for custom themes
 extraVolumeMounts: ""
 
 #### added by Big Bang ####
 # This values key is reserved for integration with BigBang chart
-extraVolumeMountsBigBang: {}
+# empty = {}
+extraVolumeMountsBigBang:
+  - name: kc-wildcard-tls
+    mountPath: "/opt/keycloak/conf"
+    readOnly: true
 
 # Add additional ports, e. g. for admin console or exposing JGroups ports
 extraPorts: []
@@ -343,7 +356,7 @@ ingress:
   rules:
     -
       # Ingress host
-      host: '{{ .Release.Name }}.keycloak.example.com'
+      host: '{{ .Release.Name }}.keycloak.cincothorn.io'
       # Paths for the host
       paths:
         - path: /
@@ -351,7 +364,7 @@ ingress:
   # TLS configuration
   tls:
     - hosts:
-        - keycloak.example.com
+        - keycloak.cincothorn.io
       secretName: ""
 
   # ingress for console only (/auth/admin)
@@ -366,7 +379,7 @@ ingress:
     rules:
       -
         # Ingress host
-        host: '{{ .Release.Name }}.keycloak.example.com'
+        host: '{{ .Release.Name }}.keycloak.cincothorn.io'
         # Paths for the host
         paths:
           - path: /auth/admin/
@@ -526,7 +539,7 @@ extraServiceMonitor:
   # Timeout for scraping
   scrapeTimeout: 10s
   # The path at which metrics are served
-  path: /auth/realms/master/metrics
+  path: /realms/master/metrics
   # The Service port at which metrics are served
   port: http
 
@@ -608,22 +621,22 @@ test:
 
 # Big Bang Additions
 ## Your FQDN will be ${ .Values.subdomain }.${ .Values.hostname }
-hostname: bigbang.dev
+hostname: cincothorn.io
 istio:
   # Toggle istio integration
-  enabled: false
-  injection: "disabled"
+  enabled: true
+  injection: "enabled"
   mtls:
     # -- STRICT = Allow only mutual TLS traffic,
     # PERMISSIVE = Allow both plain text and mutual TLS traffic
     mode: STRICT
   keycloak:
     # Toggle vs creation
-    enabled: false
+    enabled: true
     annotations: {}
     labels: {}
     gateways:
-      - istio-system/main
+      - istio-system/passthrough
     hosts:
       - keycloak.{{ .Values.hostname }}
 monitoring:
